@@ -9,7 +9,8 @@ import {
   onAuthStateChanged
 } from "firebase/auth";
 
-const API_BASE = "https://ai-devops-platform-backend.onrender.com";
+// ✅ UPDATED BACKEND URL
+const API_BASE = "https://ai-devops-platform1.onrender.com";
 
 function App() {
 
@@ -25,17 +26,15 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // ---------------- SAFETY REFS ----------------
   const authReady = useRef(false);
   const currentUid = useRef(null);
   const historyLock = useRef(false);
 
-  // ---------------- AUTH STATE (FIXED LOOP ISSUE) ----------------
+  // ---------------- AUTH STATE ----------------
   useEffect(() => {
 
     const unsubscribe = onAuthStateChanged(auth, (u) => {
 
-      // prevent duplicate trigger in dev (React StrictMode)
       if (authReady.current && u) return;
       authReady.current = true;
 
@@ -90,7 +89,7 @@ function App() {
     authReady.current = false;
   };
 
-  // ---------------- GENERATE (SAFE SaaS VERSION) ----------------
+  // ---------------- GENERATE ----------------
   const generate = async () => {
 
     if (!user) return alert("Login first");
@@ -131,7 +130,7 @@ function App() {
     }
   };
 
-  // ---------------- HISTORY (ANTI-SPAM LOCKED) ----------------
+  // ---------------- HISTORY ----------------
   const fetchHistory = async (uid) => {
 
     if (historyLock.current) return;
@@ -187,7 +186,6 @@ function App() {
   return (
     <div style={{ display: "flex", height: "100vh" }}>
 
-      {/* SIDEBAR */}
       <div style={{ width: 260, background: "#111", color: "#fff", padding: 10 }}>
         <h3>History</h3>
 
@@ -208,7 +206,6 @@ function App() {
         ))}
       </div>
 
-      {/* MAIN */}
       <div style={{ padding: 20, flex: 1 }}>
 
         <h2>AI DevOps SaaS</h2>

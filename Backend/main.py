@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pymongo import MongoClient
 from urllib.parse import quote_plus
 
+# ---------------- LOAD ENV ----------------
 load_dotenv()
 
 app = FastAPI()
@@ -22,10 +23,12 @@ app.add_middleware(
 
 # ---------------- OPENAI ----------------
 api_key = os.getenv("OPENAI_API_KEY")
-if not api_key:
-    raise RuntimeError("OPENAI_API_KEY missing")   # FIXED (no generic Exception)
 
-client = OpenAI(api_key=api_key)
+if not api_key:
+    print("WARNING: OPENAI_API_KEY missing")
+
+client = OpenAI(api_key=api_key) if api_key else None
+
 
 # ---------------- MONGODB ----------------
 mongo_url = os.getenv("MONGO_URL")
@@ -33,10 +36,10 @@ history_collection = None
 
 if mongo_url:
 
-    if mongo_url.startswith("MONGO_URL="):
-        mongo_url = mongo_url.replace("MONGO_URL=", "")
-
     try:
+        if mongo_url.startswith("MONGO_URL="):
+            mongo_url = mongo_url.replace("MONGO_URL=", "")
+
         if "@" in mongo_url and "mongodb+srv" in mongo_url:
             prefix = mongo_url.split("mongodb+srv://")[1]
             user_pass, host_part = prefix.split("@", 1)
@@ -57,14 +60,14 @@ if mongo_url:
         history_collection = None
 
 
-# ---------------- MODEL ----------------
+# ---------------- REQUEST MODEL ----------------
 class RequestData(BaseModel):
     prompt: str
     cloud: str
     uid: str
 
 
-# ---------------- SECURITY ----------------
+# ---------------- SECURITY CHECK ----------------
 def security_check(code: str):
     bad = ["0.0.0.0/0", "destroy", "delete", "admin", "force_destroy"]
     for b in bad:
@@ -84,6 +87,9 @@ def home():
 def generate(data: RequestData):
 
     try:
+        if client is None:
+            return {"status": "error", "message": "OpenAI API key missing"}
+
         response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
@@ -103,7 +109,6 @@ def generate(data: RequestData):
 
         output = "Execution skipped (Render)"
 
-        # ✅ FIX: DO NOT check collection as boolean
         if history_collection is not None:
             history_collection.insert_one({
                 "uid": data.uid,
