@@ -1,28 +1,10 @@
-# ======================
-# FRONTEND (React / Node)
-# ======================
+# env files
+.env
+Backend/.env
+frontend/.env
+
+# dependencies
 node_modules/
-build/
-dist/
-.env
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
 
-# ======================
-# BACKEND (Python)
-# ======================
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-venv/
-.env
-instance/
-.pytest_cache/
-
-# ======================
-# SYSTEM FILES
-# ======================
-.DS_Store
-.vscode/
+# logs
+*.log
