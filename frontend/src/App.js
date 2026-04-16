@@ -46,7 +46,7 @@ function App() {
     }
   }, []);
 
-  // ---------------- AUTH STATE (FIXED) ----------------
+  // ---------------- AUTH STATE ----------------
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (u) => {
       setUser(u || null);
@@ -97,15 +97,11 @@ function App() {
       setLoading(true);
       setError("");
 
-      const res = await axios.post(
-        `${API_BASE}/generate`,
-        {
-          prompt,
-          cloud,
-          uid: user.uid
-        },
-        { timeout: 20000 }
-      );
+      const res = await axios.post(`${API_BASE}/generate`, {
+        prompt,
+        cloud,
+        uid: user.uid
+      });
 
       if (res.data?.error) {
         setError(res.data.error);
@@ -117,7 +113,7 @@ function App() {
 
       fetchHistory(user.uid);
     } catch (err) {
-      setError(err.response?.data?.error || err.message || "Request failed");
+      setError(err.message || "Request failed");
     } finally {
       setLoading(false);
     }
@@ -127,28 +123,30 @@ function App() {
     navigator.clipboard.writeText(result);
   };
 
-  // ---------------- LOGIN SCREEN ----------------
+  // ---------------- LOGIN UI ----------------
   if (!user) {
     return (
-      <div style={{ padding: 40 }}>
-        <h2>AI DevOps SaaS Login</h2>
+      <div style={loginWrapper}>
+        <div style={loginCard}>
+          <h2>🚀 AI DevOps Platform</h2>
 
-        <input
-          placeholder="Email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-        />
+          <input
+            placeholder="Email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            style={inputStyle}
+          />
 
-        <input
-          type="password"
-          placeholder="Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
+          <input
+            type="password"
+            placeholder="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            style={inputStyle}
+          />
 
-        <div>
-          <button onClick={login}>Login</button>
-          <button onClick={signup}>Signup</button>
+          <button onClick={login} style={btnPrimary}>Login</button>
+          <button onClick={signup} style={btnSecondary}>Create Account</button>
         </div>
       </div>
     );
@@ -156,54 +154,196 @@ function App() {
 
   // ---------------- MAIN UI ----------------
   return (
-    <div style={{ display: "flex", height: "100vh" }}>
-      <div style={{ width: 260, background: "#111", color: "#fff", padding: 10 }}>
-        <h3>History</h3>
-        <button onClick={logout}>Logout</button>
+    <div style={appContainer}>
 
-        {history.map((h, i) => (
-          <div
-            key={i}
-            style={{ cursor: "pointer", margin: "10px 0" }}
-            onClick={() => {
-              setPrompt(h.prompt);
-              setResult(h.terraform_code);
-              setOutput(h.terraform_output);
-            }}
-          >
-            {h.prompt}
-          </div>
-        ))}
+      {/* SIDEBAR */}
+      <div style={sidebar}>
+        <h3>📁 History</h3>
+
+        <button onClick={logout} style={btnDanger}>Logout</button>
+
+        <div style={{ marginTop: 20 }}>
+          {history.map((h, i) => (
+            <div
+              key={i}
+              onClick={() => {
+                setPrompt(h.prompt);
+                setResult(h.terraform_code);
+                setOutput(h.terraform_output);
+              }}
+              style={historyItem}
+            >
+              {h.prompt}
+            </div>
+          ))}
+        </div>
       </div>
 
-      <div style={{ padding: 20, flex: 1 }}>
-        <h2>AI DevOps SaaS</h2>
+      {/* MAIN */}
+      <div style={main}>
 
-        <textarea
-          rows={6}
-          style={{ width: "100%" }}
-          value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
-        />
+        {/* HEADER */}
+        <div style={header}>
+          <h2>⚡ AI DevOps Generator</h2>
+          <p>Generate Terraform / AWS / Kubernetes instantly</p>
+        </div>
 
-        <button onClick={generate}>
-          {loading ? "Generating..." : "Generate"}
-        </button>
+        {/* PROMPT */}
+        <div style={card}>
+          <h3>💬 Prompt</h3>
 
-        {error && <p style={{ color: "red" }}>{error}</p>}
+          <textarea
+            rows={5}
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            style={textarea}
+          />
 
-        <h3>Terraform Code</h3>
-        <pre>{result}</pre>
+          <button onClick={generate} style={btnPrimary}>
+            {loading ? "Generating..." : "Generate"}
+          </button>
 
-        <h3>Output</h3>
-        <pre>{output}</pre>
+          {error && <p style={{ color: "red" }}>{error}</p>}
+        </div>
 
-        {result && (
-          <button onClick={copyToClipboard}>Copy Code</button>
-        )}
+        {/* OUTPUT */}
+        <div style={card}>
+          <h3>📦 Terraform Code</h3>
+          <pre style={codeBox}>{result}</pre>
+
+          {result && (
+            <button onClick={copyToClipboard} style={btnSecondary}>
+              Copy Code
+            </button>
+          )}
+        </div>
+
+        <div style={card}>
+          <h3>🖥️ Output</h3>
+          <pre style={codeBox}>{output}</pre>
+        </div>
+
       </div>
     </div>
   );
 }
 
 export default App;
+
+/* ---------------- STYLES ---------------- */
+
+const loginWrapper = {
+  height: "100vh",
+  display: "flex",
+  justifyContent: "center",
+  alignItems: "center",
+  background: "linear-gradient(135deg,#0f172a,#1e293b)"
+};
+
+const loginCard = {
+  width: 380,
+  padding: 30,
+  borderRadius: 12,
+  background: "#111827",
+  color: "#fff",
+  boxShadow: "0 10px 30px rgba(0,0,0,0.5)"
+};
+
+const appContainer = {
+  display: "flex",
+  height: "100vh",
+  fontFamily: "Arial"
+};
+
+const sidebar = {
+  width: 280,
+  background: "#0f172a",
+  color: "#fff",
+  padding: 15
+};
+
+const main = {
+  flex: 1,
+  background: "#f1f5f9",
+  padding: 20
+};
+
+const header = {
+  padding: 20,
+  background: "linear-gradient(90deg,#2563eb,#7c3aed)",
+  color: "#fff",
+  borderRadius: 12,
+  marginBottom: 20
+};
+
+const card = {
+  background: "#fff",
+  padding: 15,
+  borderRadius: 12,
+  marginBottom: 15,
+  boxShadow: "0 2px 10px rgba(0,0,0,0.08)"
+};
+
+const textarea = {
+  width: "100%",
+  padding: 10,
+  borderRadius: 8,
+  border: "1px solid #ccc",
+  marginBottom: 10
+};
+
+const codeBox = {
+  background: "#0f172a",
+  color: "#00ffcc",
+  padding: 10,
+  borderRadius: 8,
+  overflowX: "auto"
+};
+
+const inputStyle = {
+  width: "100%",
+  padding: 10,
+  marginBottom: 10,
+  borderRadius: 6,
+  border: "1px solid #ccc"
+};
+
+const btnPrimary = {
+  width: "100%",
+  padding: 10,
+  background: "#2563eb",
+  color: "#fff",
+  border: "none",
+  borderRadius: 6,
+  cursor: "pointer",
+  marginTop: 10
+};
+
+const btnSecondary = {
+  width: "100%",
+  padding: 10,
+  background: "#334155",
+  color: "#fff",
+  border: "none",
+  borderRadius: 6,
+  cursor: "pointer",
+  marginTop: 10
+};
+
+const btnDanger = {
+  width: "100%",
+  padding: 8,
+  background: "#dc2626",
+  color: "#fff",
+  border: "none",
+  borderRadius: 6,
+  cursor: "pointer"
+};
+
+const historyItem = {
+  padding: 10,
+  marginBottom: 10,
+  background: "#1e293b",
+  borderRadius: 8,
+  cursor: "pointer"
+};
