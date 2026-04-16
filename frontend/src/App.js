@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import axios from "axios";
 
 import { auth } from "./firebase";
@@ -9,11 +9,9 @@ import {
   onAuthStateChanged
 } from "firebase/auth";
 
-// ✅ UPDATED BACKEND URL
 const API_BASE = "https://ai-devops-platform1.onrender.com";
 
 function App() {
-
   const [user, setUser] = useState(null);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -30,15 +28,30 @@ function App() {
   const currentUid = useRef(null);
   const historyLock = useRef(false);
 
+  // ---------------- HISTORY ----------------
+  const fetchHistory = useCallback(async (uid) => {
+    if (historyLock.current) return;
+    historyLock.current = true;
+
+    try {
+      const res = await axios.get(`${API_BASE}/history`, {
+        params: { uid },
+        timeout: 10000
+      });
+
+      setHistory(Array.isArray(res.data) ? res.data : []);
+    } catch (err) {
+      console.log("History error:", err.message);
+    } finally {
+      historyLock.current = false;
+    }
+  }, []);
+
   // ---------------- AUTH STATE ----------------
   useEffect(() => {
-
     const unsubscribe = onAuthStateChanged(auth, (u) => {
-
       if (authReady.current && u) return;
       authReady.current = true;
-
-      console.log("Auth state:", u);
 
       if (!u) {
         setUser(null);
@@ -56,7 +69,7 @@ function App() {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [fetchHistory]);
 
   // ---------------- AUTH ----------------
   const signup = async () => {
@@ -91,7 +104,6 @@ function App() {
 
   // ---------------- GENERATE ----------------
   const generate = async () => {
-
     if (!user) return alert("Login first");
     if (!prompt.trim()) return alert("Enter prompt");
 
@@ -118,36 +130,10 @@ function App() {
       setOutput(res.data?.terraform_output || "");
 
       fetchHistory(user.uid);
-
     } catch (err) {
-      setError(
-        err.response?.data?.error ||
-        err.message ||
-        "Request failed"
-      );
+      setError(err.response?.data?.error || err.message || "Request failed");
     } finally {
       setLoading(false);
-    }
-  };
-
-  // ---------------- HISTORY ----------------
-  const fetchHistory = async (uid) => {
-
-    if (historyLock.current) return;
-    historyLock.current = true;
-
-    try {
-      const res = await axios.get(`${API_BASE}/history`, {
-        params: { uid },
-        timeout: 10000
-      });
-
-      setHistory(Array.isArray(res.data) ? res.data : []);
-
-    } catch (err) {
-      console.log("History error:", err.message);
-    } finally {
-      historyLock.current = false;
     }
   };
 
@@ -185,10 +171,8 @@ function App() {
   // ---------------- MAIN UI ----------------
   return (
     <div style={{ display: "flex", height: "100vh" }}>
-
       <div style={{ width: 260, background: "#111", color: "#fff", padding: 10 }}>
         <h3>History</h3>
-
         <button onClick={logout}>Logout</button>
 
         {history.map((h, i) => (
@@ -207,7 +191,6 @@ function App() {
       </div>
 
       <div style={{ padding: 20, flex: 1 }}>
-
         <h2>AI DevOps SaaS</h2>
 
         <textarea
@@ -230,11 +213,8 @@ function App() {
         <pre>{output}</pre>
 
         {result && (
-          <button onClick={copyToClipboard}>
-            Copy Code
-          </button>
+          <button onClick={copyToClipboard}>Copy Code</button>
         )}
-
       </div>
     </div>
   );
