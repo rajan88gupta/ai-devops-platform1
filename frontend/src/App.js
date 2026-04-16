@@ -17,7 +17,7 @@ function App() {
   const [password, setPassword] = useState("");
 
   const [prompt, setPrompt] = useState("");
-  const [cloud, setCloud] = useState("aws");
+  const [cloud] = useState("aws"); // ✅ FIX: removed setter to avoid ESLint CI error
   const [result, setResult] = useState("");
   const [output, setOutput] = useState("");
   const [history, setHistory] = useState([]);
