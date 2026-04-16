@@ -17,14 +17,13 @@ function App() {
   const [password, setPassword] = useState("");
 
   const [prompt, setPrompt] = useState("");
-  const [cloud] = useState("aws"); // ✅ FIX: removed setter to avoid ESLint CI error
+  const [cloud] = useState("aws");
   const [result, setResult] = useState("");
   const [output, setOutput] = useState("");
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const authReady = useRef(false);
   const currentUid = useRef(null);
   const historyLock = useRef(false);
 
@@ -47,25 +46,22 @@ function App() {
     }
   }, []);
 
-  // ---------------- AUTH STATE ----------------
+  // ---------------- AUTH STATE (FIXED) ----------------
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (u) => {
-      if (authReady.current && u) return;
-      authReady.current = true;
+      setUser(u || null);
 
-      if (!u) {
-        setUser(null);
-        setHistory([]);
+      if (u) {
+        currentUid.current = u.uid;
+        fetchHistory(u.uid);
+      } else {
         currentUid.current = null;
-        return;
+        setHistory([]);
+        setPrompt("");
+        setResult("");
+        setOutput("");
+        setError("");
       }
-
-      if (currentUid.current === u.uid) return;
-
-      currentUid.current = u.uid;
-      setUser(u);
-
-      fetchHistory(u.uid);
     });
 
     return () => unsubscribe();
@@ -90,16 +86,6 @@ function App() {
 
   const logout = async () => {
     await signOut(auth);
-
-    setUser(null);
-    setHistory([]);
-    setPrompt("");
-    setResult("");
-    setOutput("");
-    setError("");
-
-    currentUid.current = null;
-    authReady.current = false;
   };
 
   // ---------------- GENERATE ----------------
