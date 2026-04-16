@@ -2,13 +2,13 @@ import { initializeApp } from "firebase/app";
 import { getAuth, setPersistence, browserSessionPersistence } from "firebase/auth";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyA4CMAUfl-D0VDlnfykmxqW8G6w3nMg980",
-  authDomain: "ai-devops-platform.firebaseapp.com",
-  projectId: "ai-devops-platform",
-  storageBucket: "ai-devops-platform.firebasestorage.app",
-  messagingSenderId: "491709837706",
-  appId: "1:491709837706:web:6033743fab3b58302f1873",
-  measurementId: "G-G762E9TTE9"
+  apiKey: "AIzaSyAmcF2roRnFALsScxLj-fkI9ULYSVthw4o",
+  authDomain: "ai-devops-saas-platform.firebaseapp.com",
+  projectId: "ai-devops-saas-platform",
+  storageBucket: "ai-devops-saas-platform.firebasestorage.app",
+  messagingSenderId: "14932429860",
+  appId: "1:14932429860:web:5f85866f6df12a4ae25cb1",
+  measurementId: "G-P22DP63SY0"
 };
 
 const app = initializeApp(firebaseConfig);
