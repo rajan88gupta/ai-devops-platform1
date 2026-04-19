@@ -18,37 +18,31 @@ function App() {
 
   const [prompt, setPrompt] = useState("");
   const [cloud] = useState("aws");
+
   const [result, setResult] = useState("");
   const [output, setOutput] = useState("");
   const [history, setHistory] = useState([]);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   const currentUid = useRef(null);
-  const historyLock = useRef(false);
 
   // ---------------- HISTORY ----------------
   const fetchHistory = useCallback(async (uid) => {
-    if (historyLock.current) return;
-    historyLock.current = true;
-
     try {
       const res = await axios.get(`${API_BASE}/history`, {
-        params: { uid },
-        timeout: 10000
+        params: { uid }
       });
-
       setHistory(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
-      console.log("History error:", err.message);
-    } finally {
-      historyLock.current = false;
+      console.log(err.message);
     }
   }, []);
 
-  // ---------------- AUTH STATE ----------------
+  // ---------------- AUTH ----------------
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (u) => {
+    const unsub = onAuthStateChanged(auth, (u) => {
       setUser(u || null);
 
       if (u) {
@@ -60,33 +54,20 @@ function App() {
         setPrompt("");
         setResult("");
         setOutput("");
-        setError("");
       }
     });
 
-    return () => unsubscribe();
+    return () => unsub();
   }, [fetchHistory]);
 
-  // ---------------- AUTH ----------------
-  const signup = async () => {
-    try {
-      await createUserWithEmailAndPassword(auth, email, password);
-    } catch (err) {
-      alert(err.message);
-    }
-  };
+  // ---------------- AUTH ACTIONS ----------------
+  const login = () =>
+    signInWithEmailAndPassword(auth, email, password).catch(e => alert(e.message));
 
-  const login = async () => {
-    try {
-      await signInWithEmailAndPassword(auth, email, password);
-    } catch (err) {
-      alert(err.message);
-    }
-  };
+  const signup = () =>
+    createUserWithEmailAndPassword(auth, email, password).catch(e => alert(e.message));
 
-  const logout = async () => {
-    await signOut(auth);
-  };
+  const logout = () => signOut(auth);
 
   // ---------------- GENERATE ----------------
   const generate = async () => {
@@ -103,70 +84,68 @@ function App() {
         uid: user.uid
       });
 
-      if (res.data?.error) {
-        setError(res.data.error);
-        return;
-      }
-
       setResult(res.data?.terraform_code || "");
       setOutput(res.data?.terraform_output || "");
 
       fetchHistory(user.uid);
     } catch (err) {
-      setError(err.message || "Request failed");
+      setError(err.message);
     } finally {
       setLoading(false);
     }
   };
 
-  // ---------------- DEPLOY ----------------
-  const deployToGitHub = async () => {
-    if (!result) return alert("No Terraform code to deploy");
+  // ---------------- SAVE TO GITHUB ----------------
+  const saveToGitHub = async () => {
+    if (!result) return alert("No code to save");
 
     try {
-      setLoading(true);
+      await axios.post(`${API_BASE}/save`, {
+        code: result,
+        uid: user.uid
+      });
 
+      alert("Saved to GitHub 🟡");
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  // ---------------- DEPLOY ----------------
+  const deploy = async () => {
+    if (!result) return alert("No code to deploy");
+
+    try {
       await axios.post(`${API_BASE}/deploy`, {
         code: result,
         uid: user.uid
       });
 
-      alert("🚀 Deployment triggered!");
+      alert("Deployment started 🚀");
     } catch (err) {
-      alert(err.message || "Deployment failed");
-    } finally {
-      setLoading(false);
+      alert(err.message);
     }
   };
 
-  const copyToClipboard = () => {
-    navigator.clipboard.writeText(result);
-  };
+  // ---------------- COPY ----------------
+  const copy = () => navigator.clipboard.writeText(result);
 
   // ---------------- LOGIN UI ----------------
   if (!user) {
     return (
-      <div style={loginWrapper}>
+      <div style={loginWrap}>
         <div style={loginCard}>
-          <h2>🚀 AI DevOps Platform</h2>
+          <h2>AI DevOps Platform</h2>
 
-          <input
-            placeholder="Email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            style={inputStyle}
-          />
+          <input placeholder="Email" value={email}
+            onChange={e => setEmail(e.target.value)} style={input} />
 
-          <input
-            type="password"
-            placeholder="Password"
+          <input placeholder="Password" type="password"
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            style={inputStyle}
-          />
+            onChange={e => setPassword(e.target.value)} style={input} />
 
-          <button onClick={login} style={btnPrimary}>Login</button>
-          <button onClick={signup} style={btnSecondary}>Create Account</button>
+          <button onClick={login} style={btnBlue}>Login</button>
+          <button onClick={signup} style={btnDark}>Signup</button>
         </div>
       </div>
     );
@@ -174,29 +153,23 @@ function App() {
 
   // ---------------- MAIN UI ----------------
   return (
-    <div style={appContainer}>
+    <div style={app}>
 
       {/* SIDEBAR */}
       <div style={sidebar}>
-        <h3>📁 History</h3>
+        <h3>History</h3>
+        <button onClick={logout} style={btnRed}>Logout</button>
 
-        <button onClick={logout} style={btnDanger}>Logout</button>
-
-        <div style={{ marginTop: 20 }}>
-          {history.map((h, i) => (
-            <div
-              key={i}
-              onClick={() => {
-                setPrompt(h.prompt);
-                setResult(h.terraform_code);
-                setOutput(h.terraform_output);
-              }}
-              style={historyItem}
-            >
-              {h.prompt}
-            </div>
-          ))}
-        </div>
+        {history.map((h, i) => (
+          <div key={i} style={historyItem}
+            onClick={() => {
+              setPrompt(h.prompt);
+              setResult(h.terraform_code);
+              setOutput(h.terraform_output);
+            }}>
+            {h.prompt}
+          </div>
+        ))}
       </div>
 
       {/* MAIN */}
@@ -204,59 +177,58 @@ function App() {
 
         {/* HEADER */}
         <div style={header}>
-          <h2>⚡ AI DevOps Generator</h2>
-          <p>Generate Terraform / AWS / Kubernetes instantly</p>
+          <h2>⚡ AI Terraform Generator</h2>
         </div>
 
         {/* PROMPT */}
         <div style={card}>
-          <h3>💬 Prompt</h3>
+          <h3>Prompt</h3>
 
           <textarea
             rows={5}
             value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
+            onChange={e => setPrompt(e.target.value)}
             style={textarea}
           />
 
-          <button onClick={generate} style={btnPrimary}>
+          <button onClick={generate} style={btnBlue}>
             {loading ? "Generating..." : "Generate"}
           </button>
 
           {error && <p style={{ color: "red" }}>{error}</p>}
         </div>
 
-        {/* TERRAFORM CODE (EDITABLE) */}
-        <div style={card}>
-          <h3>📦 Terraform Code (Editable)</h3>
+        {/* TERRAFORM EDITOR (FULL WIDTH + LARGE) */}
+        <div style={fullCard}>
+          <h3>Terraform Code (Editable)</h3>
 
           <textarea
             value={result}
-            onChange={(e) => setResult(e.target.value)}
-            style={{
-              ...codeBox,
-              minHeight: "220px",
-              fontFamily: "monospace"
-            }}
+            onChange={e => setResult(e.target.value)}
+            style={bigEditor}
           />
 
-          {result && (
-            <>
-              <button onClick={copyToClipboard} style={btnSecondary}>
-                Copy Code
-              </button>
+          <div style={{ display: "flex", gap: 10 }}>
+            <button onClick={copy} style={btnDark}>
+              Copy
+            </button>
 
-              <button onClick={deployToGitHub} style={btnPrimary}>
-                🚀 Deploy to AWS
-              </button>
-            </>
-          )}
+            {/* 🟡 SAVE */}
+            <button onClick={saveToGitHub} style={btnYellow}>
+              Save to GitHub
+            </button>
+
+            {/* 🟢 DEPLOY */}
+            <button onClick={deploy} style={btnGreen}>
+              Deploy
+            </button>
+          </div>
         </div>
 
         {/* OUTPUT */}
         <div style={card}>
-          <h3>🖥️ Output</h3>
-          <pre style={codeBox}>{output}</pre>
+          <h3>Output</h3>
+          <pre>{output}</pre>
         </div>
 
       </div>
@@ -268,118 +240,124 @@ export default App;
 
 /* ---------------- STYLES ---------------- */
 
-const loginWrapper = {
-  height: "100vh",
-  display: "flex",
-  justifyContent: "center",
-  alignItems: "center",
-  background: "linear-gradient(135deg,#0f172a,#1e293b)"
-};
-
-const loginCard = {
-  width: 380,
-  padding: 30,
-  borderRadius: 12,
-  background: "#111827",
-  color: "#fff",
-  boxShadow: "0 10px 30px rgba(0,0,0,0.5)"
-};
-
-const appContainer = {
-  display: "flex",
-  height: "100vh",
-  fontFamily: "Arial"
-};
+const app = { display: "flex", height: "100vh" };
 
 const sidebar = {
-  width: 280,
+  width: 260,
   background: "#0f172a",
   color: "#fff",
-  padding: 15
+  padding: 10
 };
 
 const main = {
   flex: 1,
   background: "#f1f5f9",
-  padding: 20
+  padding: 15
 };
 
 const header = {
-  padding: 20,
-  background: "linear-gradient(90deg,#2563eb,#7c3aed)",
+  background: "#2563eb",
   color: "#fff",
-  borderRadius: 12,
-  marginBottom: 20
+  padding: 15,
+  borderRadius: 10,
+  marginBottom: 10
 };
 
 const card = {
   background: "#fff",
   padding: 15,
-  borderRadius: 12,
-  marginBottom: 15,
-  boxShadow: "0 2px 10px rgba(0,0,0,0.08)"
+  borderRadius: 10,
+  marginBottom: 10
 };
 
-const textarea = {
+// 🔥 BIG FULL WIDTH EDITOR
+const fullCard = {
+  background: "#fff",
+  padding: 15,
+  borderRadius: 10,
+  marginBottom: 10,
+  width: "100%"
+};
+
+const bigEditor = {
   width: "100%",
+  height: "400px",
+  fontFamily: "monospace",
+  fontSize: "14px",
   padding: 10,
   borderRadius: 8,
   border: "1px solid #ccc",
   marginBottom: 10
 };
 
-const codeBox = {
-  background: "#0f172a",
-  color: "#00ffcc",
-  padding: 10,
-  borderRadius: 8,
-  overflowX: "auto"
-};
-
-const inputStyle = {
+const textarea = {
   width: "100%",
   padding: 10,
-  marginBottom: 10,
-  borderRadius: 6,
-  border: "1px solid #ccc"
+  marginBottom: 10
 };
 
-const btnPrimary = {
+const input = {
   width: "100%",
   padding: 10,
-  background: "#2563eb",
-  color: "#fff",
-  border: "none",
-  borderRadius: 6,
-  cursor: "pointer",
-  marginTop: 10
-};
-
-const btnSecondary = {
-  width: "100%",
-  padding: 10,
-  background: "#334155",
-  color: "#fff",
-  border: "none",
-  borderRadius: 6,
-  cursor: "pointer",
-  marginTop: 10
-};
-
-const btnDanger = {
-  width: "100%",
-  padding: 8,
-  background: "#dc2626",
-  color: "#fff",
-  border: "none",
-  borderRadius: 6,
-  cursor: "pointer"
+  marginBottom: 10
 };
 
 const historyItem = {
-  padding: 10,
-  marginBottom: 10,
+  padding: 8,
   background: "#1e293b",
-  borderRadius: 8,
+  marginBottom: 5,
   cursor: "pointer"
+};
+
+const btnBlue = {
+  background: "#2563eb",
+  color: "#fff",
+  padding: 10,
+  border: "none",
+  width: "100%",
+  marginTop: 10
+};
+
+const btnDark = {
+  background: "#334155",
+  color: "#fff",
+  padding: 10,
+  border: "none"
+};
+
+const btnGreen = {
+  background: "#16a34a",
+  color: "#fff",
+  padding: 10,
+  border: "none"
+};
+
+const btnYellow = {
+  background: "#facc15",
+  color: "#000",
+  padding: 10,
+  border: "none"
+};
+
+const btnRed = {
+  background: "#dc2626",
+  color: "#fff",
+  padding: 10,
+  border: "none",
+  width: "100%",
+  marginBottom: 10
+};
+
+const loginWrap = {
+  height: "100vh",
+  display: "flex",
+  justifyContent: "center",
+  alignItems: "center"
+};
+
+const loginCard = {
+  width: 300,
+  padding: 20,
+  background: "#111827",
+  color: "#fff"
 };
