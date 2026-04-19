@@ -2,9 +2,11 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import OpenAI from "openai";
-import fetch from "node-fetch";
+import fetch, { Headers } from "node-fetch";
 
+// ---------------- POLYFILLS (IMPORTANT) ----------------
 globalThis.fetch = fetch;
+globalThis.Headers = Headers;
 
 dotenv.config();
 
@@ -23,7 +25,7 @@ app.get("/", (req, res) => {
   res.send("AI DevOps Backend is running 🚀");
 });
 
-// ---------------- AI GENERATE (REAL VERSION) ----------------
+// ---------------- AI GENERATE ----------------
 app.post("/generate", async (req, res) => {
   const { prompt } = req.body;
 
@@ -44,7 +46,7 @@ Rules:
 - Return ONLY Terraform code
 - No explanation
 - No markdown
-- No comments unless necessary
+- No extra text
 `
         },
         {
@@ -59,19 +61,23 @@ Rules:
     res.json({ terraform_code });
 
   } catch (err) {
-    console.error(err);
+    console.error("AI Error:", err);
     res.status(500).json({ error: "AI generation failed" });
   }
 });
 
-// ---------------- SAVE (placeholder for now) ----------------
+// ---------------- SAVE (placeholder) ----------------
 app.post("/save", (req, res) => {
-  res.json({ message: "Save API ready (GitHub integration next step)" });
+  res.json({
+    message: "Save API ready (GitHub integration next step)"
+  });
 });
 
-// ---------------- DEPLOY (placeholder for now) ----------------
+// ---------------- DEPLOY (placeholder) ----------------
 app.post("/deploy", (req, res) => {
-  res.json({ message: "Deploy API ready (CI/CD next step)" });
+  res.json({
+    message: "Deploy API ready (CI/CD next step)"
+  });
 });
 
 // ---------------- START SERVER ----------------
