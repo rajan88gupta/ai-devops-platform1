@@ -17,6 +17,7 @@ function App() {
   const [password, setPassword] = useState("");
 
   const [prompt, setPrompt] = useState("");
+  const [repo, setRepo] = useState(""); // ✅ ADDED
   const [cloud] = useState("aws");
 
   const [result, setResult] = useState("");
@@ -60,7 +61,6 @@ function App() {
     return () => unsub();
   }, [fetchHistory]);
 
-  // ---------------- AUTH ACTIONS ----------------
   const login = () =>
     signInWithEmailAndPassword(auth, email, password).catch(e => alert(e.message));
 
@@ -97,12 +97,14 @@ function App() {
 
   // ---------------- SAVE TO GITHUB ----------------
   const saveToGitHub = async () => {
-    if (!result) return alert("No code to save");
+    if (!result) return alert("No Terraform code");
+    if (!repo.trim()) return alert("Enter GitHub repo name");
 
     try {
       await axios.post(`${API_BASE}/save`, {
         code: result,
-        uid: user.uid
+        uid: user.uid,
+        repo // ✅ ADDED
       });
 
       alert("Saved to GitHub 🟡");
@@ -113,12 +115,14 @@ function App() {
 
   // ---------------- DEPLOY ----------------
   const deploy = async () => {
-    if (!result) return alert("No code to deploy");
+    if (!result) return alert("No Terraform code");
+    if (!repo.trim()) return alert("Enter GitHub repo name");
 
     try {
       await axios.post(`${API_BASE}/deploy`, {
         code: result,
-        uid: user.uid
+        uid: user.uid,
+        repo // ✅ ADDED
       });
 
       alert("Deployment started 🚀");
@@ -127,7 +131,6 @@ function App() {
     }
   };
 
-  // ---------------- COPY ----------------
   const copy = () => navigator.clipboard.writeText(result);
 
   // ---------------- LOGIN UI ----------------
@@ -191,6 +194,20 @@ function App() {
             style={textarea}
           />
 
+          {/* ✅ GITHUB REPO INPUT */}
+          <input
+            placeholder="GitHub repo name (e.g. terraform-demo)"
+            value={repo}
+            onChange={e => setRepo(e.target.value)}
+            style={{
+              width: "100%",
+              padding: 10,
+              marginBottom: 10,
+              borderRadius: 6,
+              border: "1px solid #ccc"
+            }}
+          />
+
           <button onClick={generate} style={btnBlue}>
             {loading ? "Generating..." : "Generate"}
           </button>
@@ -198,7 +215,7 @@ function App() {
           {error && <p style={{ color: "red" }}>{error}</p>}
         </div>
 
-        {/* TERRAFORM EDITOR (FULL WIDTH + LARGE) */}
+        {/* TERRAFORM EDITOR */}
         <div style={fullCard}>
           <h3>Terraform Code (Editable)</h3>
 
@@ -209,16 +226,12 @@ function App() {
           />
 
           <div style={{ display: "flex", gap: 10 }}>
-            <button onClick={copy} style={btnDark}>
-              Copy
-            </button>
+            <button onClick={copy} style={btnDark}>Copy</button>
 
-            {/* 🟡 SAVE */}
             <button onClick={saveToGitHub} style={btnYellow}>
               Save to GitHub
             </button>
 
-            {/* 🟢 DEPLOY */}
             <button onClick={deploy} style={btnGreen}>
               Deploy
             </button>
@@ -270,7 +283,6 @@ const card = {
   marginBottom: 10
 };
 
-// 🔥 BIG FULL WIDTH EDITOR
 const fullCard = {
   background: "#fff",
   padding: 15,
@@ -296,12 +308,6 @@ const textarea = {
   marginBottom: 10
 };
 
-const input = {
-  width: "100%",
-  padding: 10,
-  marginBottom: 10
-};
-
 const historyItem = {
   padding: 8,
   background: "#1e293b",
@@ -309,44 +315,17 @@ const historyItem = {
   cursor: "pointer"
 };
 
-const btnBlue = {
-  background: "#2563eb",
-  color: "#fff",
-  padding: 10,
-  border: "none",
+const input = {
   width: "100%",
-  marginTop: 10
-};
-
-const btnDark = {
-  background: "#334155",
-  color: "#fff",
   padding: 10,
-  border: "none"
-};
-
-const btnGreen = {
-  background: "#16a34a",
-  color: "#fff",
-  padding: 10,
-  border: "none"
-};
-
-const btnYellow = {
-  background: "#facc15",
-  color: "#000",
-  padding: 10,
-  border: "none"
-};
-
-const btnRed = {
-  background: "#dc2626",
-  color: "#fff",
-  padding: 10,
-  border: "none",
-  width: "100%",
   marginBottom: 10
 };
+
+const btnBlue = { background: "#2563eb", color: "#fff", padding: 10, border: "none", width: "100%", marginTop: 10 };
+const btnDark = { background: "#334155", color: "#fff", padding: 10, border: "none" };
+const btnGreen = { background: "#16a34a", color: "#fff", padding: 10, border: "none" };
+const btnYellow = { background: "#facc15", color: "#000", padding: 10, border: "none" };
+const btnRed = { background: "#dc2626", color: "#fff", padding: 10, border: "none", width: "100%", marginBottom: 10 };
 
 const loginWrap = {
   height: "100vh",
