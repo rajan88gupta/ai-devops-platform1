@@ -119,6 +119,26 @@ function App() {
     }
   };
 
+  // ---------------- DEPLOY ----------------
+  const deployToGitHub = async () => {
+    if (!result) return alert("No Terraform code to deploy");
+
+    try {
+      setLoading(true);
+
+      await axios.post(`${API_BASE}/deploy`, {
+        code: result,
+        uid: user.uid
+      });
+
+      alert("🚀 Deployment triggered!");
+    } catch (err) {
+      alert(err.message || "Deployment failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const copyToClipboard = () => {
     navigator.clipboard.writeText(result);
   };
@@ -206,18 +226,34 @@ function App() {
           {error && <p style={{ color: "red" }}>{error}</p>}
         </div>
 
-        {/* OUTPUT */}
+        {/* TERRAFORM CODE (EDITABLE) */}
         <div style={card}>
-          <h3>📦 Terraform Code</h3>
-          <pre style={codeBox}>{result}</pre>
+          <h3>📦 Terraform Code (Editable)</h3>
+
+          <textarea
+            value={result}
+            onChange={(e) => setResult(e.target.value)}
+            style={{
+              ...codeBox,
+              minHeight: "220px",
+              fontFamily: "monospace"
+            }}
+          />
 
           {result && (
-            <button onClick={copyToClipboard} style={btnSecondary}>
-              Copy Code
-            </button>
+            <>
+              <button onClick={copyToClipboard} style={btnSecondary}>
+                Copy Code
+              </button>
+
+              <button onClick={deployToGitHub} style={btnPrimary}>
+                🚀 Deploy to AWS
+              </button>
+            </>
           )}
         </div>
 
+        {/* OUTPUT */}
         <div style={card}>
           <h3>🖥️ Output</h3>
           <pre style={codeBox}>{output}</pre>
