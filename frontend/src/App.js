@@ -9,7 +9,7 @@ import {
   onAuthStateChanged
 } from "firebase/auth";
 
-const API_BASE = "https://ai-devops-platform1.onrender.com";
+const API_BASE = "http://localhost:5000";
 
 function App() {
   const [user, setUser] = useState(null);
