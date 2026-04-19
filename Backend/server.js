@@ -1,17 +1,20 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
-import OpenAI from "openai";
 import { Octokit } from "@octokit/rest";
 
 dotenv.config();
 
-const app = express();
+/* ---------------- POLYFILL FIRST (IMPORTANT) ---------------- */
+import fetch, { Headers, FormData } from "node-fetch";
 
-app.use(cors());
-app.use(express.json());
+globalThis.fetch = fetch;
+globalThis.Headers = Headers;
+globalThis.FormData = FormData;
 
-/* ---------------- OPENAI ---------------- */
+/* ---------------- NOW SAFE TO IMPORT OPENAI ---------------- */
+import OpenAI from "openai";
+
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
@@ -21,12 +24,17 @@ const octokit = new Octokit({
   auth: process.env.GITHUB_TOKEN,
 });
 
-/* ---------------- HEALTH CHECK ---------------- */
+const app = express();
+
+app.use(cors());
+app.use(express.json());
+
+/* ---------------- HEALTH ---------------- */
 app.get("/", (req, res) => {
   res.send("AI DevOps Backend is running 🚀");
 });
 
-/* ---------------- AI GENERATE ---------------- */
+/* ---------------- GENERATE ---------------- */
 app.post("/generate", async (req, res) => {
   const { prompt } = req.body;
 
@@ -57,9 +65,9 @@ Rules:
       ]
     });
 
-    const terraform_code = response.choices[0].message.content;
-
-    res.json({ terraform_code });
+    res.json({
+      terraform_code: response.choices[0].message.content
+    });
 
   } catch (err) {
     console.error("AI Error:", err);
@@ -67,13 +75,9 @@ Rules:
   }
 });
 
-/* ---------------- SAVE TO GITHUB (REAL) ---------------- */
+/* ---------------- SAVE TO GITHUB ---------------- */
 app.post("/save", async (req, res) => {
   const { code } = req.body;
-
-  if (!code) {
-    return res.status(400).json({ error: "No code provided" });
-  }
 
   try {
     const owner = process.env.GITHUB_USERNAME;
@@ -81,7 +85,7 @@ app.post("/save", async (req, res) => {
 
     const path = `terraform/main.tf`;
 
-    const response = await octokit.repos.createOrUpdateFileContents({
+    const result = await octokit.repos.createOrUpdateFileContents({
       owner,
       repo,
       path,
@@ -90,24 +94,17 @@ app.post("/save", async (req, res) => {
     });
 
     res.json({
-      message: "Saved to GitHub successfully",
-      url: response.data.content.html_url,
+      message: "Saved to GitHub",
+      url: result.data.content.html_url
     });
 
   } catch (err) {
-    console.error("GitHub Error:", err);
+    console.error(err);
     res.status(500).json({ error: "GitHub save failed" });
   }
 });
 
-/* ---------------- DEPLOY (placeholder) ---------------- */
-app.post("/deploy", (req, res) => {
-  res.json({
-    message: "Deploy API ready (CI/CD next step)"
-  });
-});
-
-/* ---------------- START SERVER ---------------- */
+/* ---------------- START ---------------- */
 const PORT = 5000;
 
 app.listen(PORT, () => {
