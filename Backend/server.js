@@ -2,11 +2,12 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import OpenAI from "openai";
-import fetch, { Headers } from "node-fetch";
+import fetch, { Headers, FormData } from "node-fetch";
 
-// ---------------- POLYFILLS (IMPORTANT) ----------------
+// ---------------- POLYFILLS (REQUIRED FOR OPENAI SDK) ----------------
 globalThis.fetch = fetch;
 globalThis.Headers = Headers;
+globalThis.FormData = FormData;
 
 dotenv.config();
 
