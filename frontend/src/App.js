@@ -17,8 +17,7 @@ function App() {
   const [password, setPassword] = useState("");
 
   const [prompt, setPrompt] = useState("");
-  const [repo, setRepo] = useState(""); // ✅ ADDED
-  const [cloud] = useState("aws");
+  const [repo, setRepo] = useState("");
 
   const [result, setResult] = useState("");
   const [output, setOutput] = useState("");
@@ -37,7 +36,7 @@ function App() {
       });
       setHistory(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
-      console.log(err.message);
+      console.log("History error:", err.message);
     }
   }, []);
 
@@ -62,10 +61,14 @@ function App() {
   }, [fetchHistory]);
 
   const login = () =>
-    signInWithEmailAndPassword(auth, email, password).catch(e => alert(e.message));
+    signInWithEmailAndPassword(auth, email, password).catch(e =>
+      alert(e.message)
+    );
 
   const signup = () =>
-    createUserWithEmailAndPassword(auth, email, password).catch(e => alert(e.message));
+    createUserWithEmailAndPassword(auth, email, password).catch(e =>
+      alert(e.message)
+    );
 
   const logout = () => signOut(auth);
 
@@ -79,55 +82,50 @@ function App() {
       setError("");
 
       const res = await axios.post(`${API_BASE}/generate`, {
-        prompt,
-        cloud,
-        uid: user.uid
+        prompt
       });
 
-      setResult(res.data?.terraform_code || "");
+      setResult(res.data?.terraformCode || "");
       setOutput(res.data?.terraform_output || "");
 
       fetchHistory(user.uid);
     } catch (err) {
+      console.log(err);
       setError(err.message);
     } finally {
       setLoading(false);
     }
   };
 
-  // ---------------- SAVE TO GITHUB ----------------
+  // ---------------- SAVE TO GITHUB (FIXED) ----------------
   const saveToGitHub = async () => {
     if (!result) return alert("No Terraform code");
-    if (!repo.trim()) return alert("Enter GitHub repo name");
 
     try {
-      await axios.post(`${API_BASE}/save`, {
-        code: result,
-        uid: user.uid,
-        repo // ✅ ADDED
+      await axios.post(`${API_BASE}/push`, {
+        terraformCode: result
       });
 
-      alert("Saved to GitHub 🟡");
+      alert("Saved to GitHub 🟢");
     } catch (err) {
-      alert(err.message);
+      console.log(err.response?.data || err.message);
+      alert("GitHub push failed ❌");
     }
   };
 
-  // ---------------- DEPLOY ----------------
+  // ---------------- DEPLOY (TEMP = SAME PUSH FLOW) ----------------
   const deploy = async () => {
     if (!result) return alert("No Terraform code");
-    if (!repo.trim()) return alert("Enter GitHub repo name");
 
     try {
-      await axios.post(`${API_BASE}/deploy`, {
-        code: result,
-        uid: user.uid,
-        repo // ✅ ADDED
+      await axios.post(`${API_BASE}/push`, {
+        terraformCode: result
       });
 
-      alert("Deployment started 🚀");
+      alert("Deploy triggered (via GitHub push) 🚀");
     } catch (err) {
-      alert(err.message);
+      console.log(err.response?.data || err.message);
+      alert("Deploy failed ❌");
     }
   };
 
@@ -140,12 +138,20 @@ function App() {
         <div style={loginCard}>
           <h2>AI DevOps Platform</h2>
 
-          <input placeholder="Email" value={email}
-            onChange={e => setEmail(e.target.value)} style={input} />
+          <input
+            placeholder="Email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            style={input}
+          />
 
-          <input placeholder="Password" type="password"
+          <input
+            placeholder="Password"
+            type="password"
             value={password}
-            onChange={e => setPassword(e.target.value)} style={input} />
+            onChange={(e) => setPassword(e.target.value)}
+            style={input}
+          />
 
           <button onClick={login} style={btnBlue}>Login</button>
           <button onClick={signup} style={btnDark}>Signup</button>
@@ -164,12 +170,15 @@ function App() {
         <button onClick={logout} style={btnRed}>Logout</button>
 
         {history.map((h, i) => (
-          <div key={i} style={historyItem}
+          <div
+            key={i}
+            style={historyItem}
             onClick={() => {
               setPrompt(h.prompt);
               setResult(h.terraform_code);
               setOutput(h.terraform_output);
-            }}>
+            }}
+          >
             {h.prompt}
           </div>
         ))}
@@ -178,34 +187,18 @@ function App() {
       {/* MAIN */}
       <div style={main}>
 
-        {/* HEADER */}
         <div style={header}>
           <h2>⚡ AI Terraform Generator</h2>
         </div>
 
-        {/* PROMPT */}
         <div style={card}>
           <h3>Prompt</h3>
 
           <textarea
             rows={5}
             value={prompt}
-            onChange={e => setPrompt(e.target.value)}
+            onChange={(e) => setPrompt(e.target.value)}
             style={textarea}
-          />
-
-          {/* ✅ GITHUB REPO INPUT */}
-          <input
-            placeholder="GitHub repo name (e.g. terraform-demo)"
-            value={repo}
-            onChange={e => setRepo(e.target.value)}
-            style={{
-              width: "100%",
-              padding: 10,
-              marginBottom: 10,
-              borderRadius: 6,
-              border: "1px solid #ccc"
-            }}
           />
 
           <button onClick={generate} style={btnBlue}>
@@ -215,13 +208,12 @@ function App() {
           {error && <p style={{ color: "red" }}>{error}</p>}
         </div>
 
-        {/* TERRAFORM EDITOR */}
         <div style={fullCard}>
-          <h3>Terraform Code (Editable)</h3>
+          <h3>Terraform Code</h3>
 
           <textarea
             value={result}
-            onChange={e => setResult(e.target.value)}
+            onChange={(e) => setResult(e.target.value)}
             style={bigEditor}
           />
 
@@ -238,7 +230,6 @@ function App() {
           </div>
         </div>
 
-        {/* OUTPUT */}
         <div style={card}>
           <h3>Output</h3>
           <pre>{output}</pre>
@@ -287,8 +278,7 @@ const fullCard = {
   background: "#fff",
   padding: 15,
   borderRadius: 10,
-  marginBottom: 10,
-  width: "100%"
+  marginBottom: 10
 };
 
 const bigEditor = {
@@ -321,11 +311,11 @@ const input = {
   marginBottom: 10
 };
 
-const btnBlue = { background: "#2563eb", color: "#fff", padding: 10, border: "none", width: "100%", marginTop: 10 };
+const btnBlue = { background: "#2563eb", color: "#fff", padding: 10, border: "none", width: "100%" };
 const btnDark = { background: "#334155", color: "#fff", padding: 10, border: "none" };
 const btnGreen = { background: "#16a34a", color: "#fff", padding: 10, border: "none" };
 const btnYellow = { background: "#facc15", color: "#000", padding: 10, border: "none" };
-const btnRed = { background: "#dc2626", color: "#fff", padding: 10, border: "none", width: "100%", marginBottom: 10 };
+const btnRed = { background: "#dc2626", color: "#fff", padding: 10, border: "none", width: "100%" };
 
 const loginWrap = {
   height: "100vh",
