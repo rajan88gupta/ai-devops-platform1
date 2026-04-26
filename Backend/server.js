@@ -1,18 +1,14 @@
-// ---------------- POLYFILL (MUST BE FIRST) ----------------
-import fetch, { Headers, FormData } from "node-fetch";
-
-globalThis.fetch = fetch;
-globalThis.Headers = Headers;
-globalThis.FormData = FormData;
-
-// ---------------- IMPORTS ----------------
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import OpenAI from "openai";
 import { Octokit } from "@octokit/rest";
+import fetch from "node-fetch";
 
 dotenv.config();
+
+// ---------------- FIX FOR OPENAI ----------------
+globalThis.fetch = fetch;
 
 // ---------------- APP ----------------
 const app = express();
@@ -39,7 +35,7 @@ app.get("/", (req, res) => {
   res.send("AI DevOps Backend Running 🚀");
 });
 
-// ---------------- GENERATE ----------------
+// ---------------- GENERATE TERRAFORM ----------------
 app.post("/generate", async (req, res) => {
   const { prompt } = req.body;
 
@@ -115,7 +111,6 @@ app.post("/save", async (req, res) => {
       sha = undefined;
     }
 
-    // Create or update file
     const result = await octokit.request(
       "PUT /repos/{owner}/{repo}/contents/{path}",
       {
@@ -193,11 +188,10 @@ app.post("/deploy", async (req, res) => {
 
     // Trigger GitHub Actions
     await octokit.request(
-      "POST /repos/{owner}/{repo}/actions/workflows/{workflow_id}/dispatches",
+      "POST /repos/{owner}/{repo}/actions/workflows/terraform.yml/dispatches",
       {
         owner,
         repo,
-        workflow_id: "terraform.yml",
         ref: branch
       }
     );
@@ -215,7 +209,7 @@ app.post("/deploy", async (req, res) => {
   }
 });
 
-// ---------------- START ----------------
+// ---------------- START SERVER ----------------
 const PORT = 5000;
 
 app.listen(PORT, () => {
