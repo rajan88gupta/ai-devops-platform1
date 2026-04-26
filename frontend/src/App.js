@@ -19,7 +19,7 @@ function App() {
 
   const [prompt, setPrompt] = useState("");
   const [repo, setRepo] = useState("");
-  const [githubToken, setGithubToken] = useState("");
+  
 
   const [result, setResult] = useState("");
   const [output, setOutput] = useState("");
