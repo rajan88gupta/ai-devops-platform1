@@ -1,36 +1,45 @@
+// ---------------- POLYFILL (MUST BE FIRST) ----------------
+import fetch, { Headers, FormData } from "node-fetch";
+
+globalThis.fetch = fetch;
+globalThis.Headers = Headers;
+globalThis.FormData = FormData;
+
+// ---------------- IMPORTS ----------------
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import OpenAI from "openai";
 import { Octokit } from "@octokit/rest";
-import fetch from "node-fetch";
 
 dotenv.config();
 
-/* ---------------- FIX: FETCH FOR OPENAI ---------------- */
-globalThis.fetch = fetch;
-
-/* ---------------- APP ---------------- */
+// ---------------- APP ----------------
 const app = express();
-app.use(cors());
+
+app.use(cors({
+  origin: "http://localhost:3000",
+  methods: ["GET", "POST"]
+}));
+
 app.use(express.json());
 
-/* ---------------- OPENAI ---------------- */
+// ---------------- OPENAI ----------------
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-/* ---------------- GITHUB ---------------- */
+// ---------------- GITHUB ----------------
 const octokit = new Octokit({
   auth: process.env.GITHUB_TOKEN,
 });
 
-/* ---------------- HEALTH CHECK ---------------- */
+// ---------------- HEALTH ----------------
 app.get("/", (req, res) => {
   res.send("AI DevOps Backend Running 🚀");
 });
 
-/* ---------------- GENERATE TERRAFORM ---------------- */
+// ---------------- GENERATE ----------------
 app.post("/generate", async (req, res) => {
   const { prompt } = req.body;
 
@@ -44,7 +53,7 @@ app.post("/generate", async (req, res) => {
       messages: [
         {
           role: "system",
-          content: "Return ONLY Terraform code. No explanation, no markdown."
+          content: "Return ONLY Terraform code. No explanation. No markdown."
         },
         {
           role: "user",
@@ -64,7 +73,7 @@ app.post("/generate", async (req, res) => {
     });
 
   } catch (err) {
-    console.error("OPENAI ERROR:", err);
+    console.error("OPENAI ERROR:", err.message);
     res.status(500).json({
       error: "AI generation failed",
       details: err.message
@@ -72,51 +81,61 @@ app.post("/generate", async (req, res) => {
   }
 });
 
-/* ---------------- SAVE TO GITHUB (FIXED SHA ISSUE) ---------------- */
+// ---------------- SAVE TO GITHUB ----------------
 app.post("/save", async (req, res) => {
-  const { code } = req.body;
+  const { code, repo } = req.body;
 
-  if (!code) {
-    return res.status(400).json({ error: "No code provided" });
+  if (!code || !repo) {
+    return res.status(400).json({ error: "Missing code or repo" });
   }
 
   try {
     const owner = process.env.GITHUB_USERNAME;
-    const repo = process.env.GITHUB_REPO;
     const path = "terraform/main.tf";
+    const branch = "main";
 
-    let sha = null;
+    let sha;
 
-    // STEP 1: Check if file exists
+    // Check if file exists
     try {
-      const file = await octokit.repos.getContent({
-        owner,
-        repo,
-        path
-      });
+      const existing = await octokit.request(
+        "GET /repos/{owner}/{repo}/contents/{path}",
+        {
+          owner,
+          repo,
+          path,
+          ref: branch
+        }
+      );
 
-      sha = file.data.sha;
-    } catch (err) {
-      sha = null; // file does not exist
+      if (!Array.isArray(existing.data)) {
+        sha = existing.data.sha;
+      }
+    } catch (e) {
+      sha = undefined;
     }
 
-    // STEP 2: Create or update file safely
-    const response = await octokit.repos.createOrUpdateFileContents({
-      owner,
-      repo,
-      path,
-      message: "AI Terraform update",
-      content: Buffer.from(code).toString("base64"),
-      ...(sha ? { sha } : {}) // only include if exists
-    });
+    // Create or update file
+    const result = await octokit.request(
+      "PUT /repos/{owner}/{repo}/contents/{path}",
+      {
+        owner,
+        repo,
+        path,
+        message: "AI Terraform update",
+        content: Buffer.from(code).toString("base64"),
+        branch,
+        ...(sha ? { sha } : {})
+      }
+    );
 
     res.json({
       message: "Saved to GitHub",
-      url: response.data.content.html_url
+      url: result.data.content?.html_url
     });
 
   } catch (err) {
-    console.error("GITHUB ERROR:", err);
+    console.error("GITHUB ERROR:", err.response?.data || err.message);
     res.status(500).json({
       error: "GitHub save failed",
       details: err.message
@@ -124,7 +143,79 @@ app.post("/save", async (req, res) => {
   }
 });
 
-/* ---------------- START SERVER ---------------- */
+// ---------------- DEPLOY ----------------
+app.post("/deploy", async (req, res) => {
+  const { code, repo } = req.body;
+
+  if (!code || !repo) {
+    return res.status(400).json({ error: "Missing code or repo" });
+  }
+
+  try {
+    const owner = process.env.GITHUB_USERNAME;
+    const path = "terraform/main.tf";
+    const branch = "main";
+
+    let sha;
+
+    // Check file
+    try {
+      const existing = await octokit.request(
+        "GET /repos/{owner}/{repo}/contents/{path}",
+        {
+          owner,
+          repo,
+          path,
+          ref: branch
+        }
+      );
+
+      if (!Array.isArray(existing.data)) {
+        sha = existing.data.sha;
+      }
+    } catch (e) {
+      sha = undefined;
+    }
+
+    // Push code
+    await octokit.request(
+      "PUT /repos/{owner}/{repo}/contents/{path}",
+      {
+        owner,
+        repo,
+        path,
+        message: "Deploy Terraform",
+        content: Buffer.from(code).toString("base64"),
+        branch,
+        ...(sha ? { sha } : {})
+      }
+    );
+
+    // Trigger GitHub Actions
+    await octokit.request(
+      "POST /repos/{owner}/{repo}/actions/workflows/{workflow_id}/dispatches",
+      {
+        owner,
+        repo,
+        workflow_id: "terraform.yml",
+        ref: branch
+      }
+    );
+
+    res.json({
+      message: "Deployment triggered 🚀"
+    });
+
+  } catch (err) {
+    console.error("DEPLOY ERROR:", err.response?.data || err.message);
+    res.status(500).json({
+      error: "Deployment failed",
+      details: err.message
+    });
+  }
+});
+
+// ---------------- START ----------------
 const PORT = 5000;
 
 app.listen(PORT, () => {
