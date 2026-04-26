@@ -1,20 +1,25 @@
+
+// ---------------- FIX OPENAI (IMPORTANT) ----------------
+import { fetch, Headers, FormData } from "undici";
+
+globalThis.fetch = fetch;
+globalThis.Headers = Headers;
+globalThis.FormData = FormData;
+
+// ---------------- IMPORTS ----------------
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import OpenAI from "openai";
 import { Octokit } from "@octokit/rest";
-import fetch from "node-fetch";
 
 dotenv.config();
-
-// ---------------- FIX FOR OPENAI ----------------
-globalThis.fetch = fetch;
 
 // ---------------- APP ----------------
 const app = express();
 
 app.use(cors({
-   origin: [
+  origin: [
     "http://localhost:3000",
     "https://ai-devops-platform1.vercel.app"
   ],
@@ -38,7 +43,7 @@ app.get("/", (req, res) => {
   res.send("AI DevOps Backend Running 🚀");
 });
 
-// ---------------- GENERATE TERRAFORM ----------------
+// ---------------- GENERATE ----------------
 app.post("/generate", async (req, res) => {
   const { prompt } = req.body;
 
@@ -63,16 +68,12 @@ app.post("/generate", async (req, res) => {
 
     const output = response.choices?.[0]?.message?.content;
 
-    if (!output) {
-      return res.status(500).json({ error: "Empty AI response" });
-    }
-
     res.json({
-      terraform_code: output
+      terraform_code: output || ""
     });
 
   } catch (err) {
-    console.error("OPENAI ERROR:", err.message);
+    console.error("OPENAI ERROR:", err);
     res.status(500).json({
       error: "AI generation failed",
       details: err.message
@@ -95,16 +96,10 @@ app.post("/save", async (req, res) => {
 
     let sha;
 
-    // Check if file exists
     try {
       const existing = await octokit.request(
         "GET /repos/{owner}/{repo}/contents/{path}",
-        {
-          owner,
-          repo,
-          path,
-          ref: branch
-        }
+        { owner, repo, path, ref: branch }
       );
 
       if (!Array.isArray(existing.data)) {
@@ -156,16 +151,10 @@ app.post("/deploy", async (req, res) => {
 
     let sha;
 
-    // Check file
     try {
       const existing = await octokit.request(
         "GET /repos/{owner}/{repo}/contents/{path}",
-        {
-          owner,
-          repo,
-          path,
-          ref: branch
-        }
+        { owner, repo, path, ref: branch }
       );
 
       if (!Array.isArray(existing.data)) {
@@ -175,7 +164,6 @@ app.post("/deploy", async (req, res) => {
       sha = undefined;
     }
 
-    // Push code
     await octokit.request(
       "PUT /repos/{owner}/{repo}/contents/{path}",
       {
@@ -189,7 +177,6 @@ app.post("/deploy", async (req, res) => {
       }
     );
 
-    // Trigger GitHub Actions
     await octokit.request(
       "POST /repos/{owner}/{repo}/actions/workflows/terraform.yml/dispatches",
       {
@@ -212,7 +199,7 @@ app.post("/deploy", async (req, res) => {
   }
 });
 
-// ---------------- START SERVER ----------------
+// ---------------- START ----------------
 const PORT = 5000;
 
 app.listen(PORT, () => {

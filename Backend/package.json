@@ -15,7 +15,8 @@
     "dotenv": "^16.6.1",
     "express": "^4.22.1",
     "node-fetch": "^3.3.2",
-    "openai": "^6.34.0"
+    "openai": "^6.34.0",
+    "undici": "^8.1.0"
   },
   "keywords": [],
   "author": "",
