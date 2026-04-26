@@ -66,10 +66,8 @@ app.post("/generate", async (req, res) => {
       ]
     });
 
-    const output = response.choices?.[0]?.message?.content;
-
     res.json({
-      terraform_code: output || ""
+      terraform_code: response.choices?.[0]?.message?.content || ""
     });
 
   } catch (err) {
@@ -81,9 +79,12 @@ app.post("/generate", async (req, res) => {
   }
 });
 
-// ---------------- SAVE TO GITHUB ----------------
+// ---------------- SAVE TO GITHUB (FIXED) ----------------
 app.post("/save", async (req, res) => {
-  const { code, repo } = req.body;
+  let { code, repo } = req.body;
+
+  // 🔥 FIX: remove hidden spaces
+  repo = (repo || "").trim();
 
   if (!code || !repo) {
     return res.status(400).json({ error: "Missing code or repo" });
@@ -131,14 +132,16 @@ app.post("/save", async (req, res) => {
     console.error("GITHUB ERROR:", err.response?.data || err.message);
     res.status(500).json({
       error: "GitHub save failed",
-      details: err.message
+      details: err.response?.data || err.message
     });
   }
 });
 
 // ---------------- DEPLOY ----------------
 app.post("/deploy", async (req, res) => {
-  const { code, repo } = req.body;
+  let { code, repo } = req.body;
+
+  repo = (repo || "").trim();
 
   if (!code || !repo) {
     return res.status(400).json({ error: "Missing code or repo" });
@@ -194,7 +197,7 @@ app.post("/deploy", async (req, res) => {
     console.error("DEPLOY ERROR:", err.response?.data || err.message);
     res.status(500).json({
       error: "Deployment failed",
-      details: err.message
+      details: err.response?.data || err.message
     });
   }
 });
