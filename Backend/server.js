@@ -14,8 +14,11 @@ globalThis.fetch = fetch;
 const app = express();
 
 app.use(cors({
-  origin: "http://localhost:3000",
-  methods: ["GET", "POST"]
+   origin: [
+    "http://localhost:3000",
+    "https://ai-devops-platform1.vercel.app"
+  ],
+  methods: ["GET", "POST", "OPTIONS"]
 }));
 
 app.use(express.json());
