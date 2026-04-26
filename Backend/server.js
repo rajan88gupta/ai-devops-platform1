@@ -1,5 +1,3 @@
-
-// ---------------- FIX OPENAI (IMPORTANT) ----------------
 import { fetch, Headers, FormData } from "undici";
 
 globalThis.fetch = fetch;
@@ -15,7 +13,6 @@ import { Octokit } from "@octokit/rest";
 
 dotenv.config();
 
-// ---------------- APP ----------------
 const app = express();
 
 app.use(cors({
@@ -31,11 +28,6 @@ app.use(express.json());
 // ---------------- OPENAI ----------------
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
-});
-
-// ---------------- GITHUB ----------------
-const octokit = new Octokit({
-  auth: process.env.GITHUB_TOKEN,
 });
 
 // ---------------- HEALTH ----------------
@@ -71,7 +63,7 @@ app.post("/generate", async (req, res) => {
     });
 
   } catch (err) {
-    console.error("OPENAI ERROR:", err);
+    console.error("OPENAI ERROR:", err.message);
     res.status(500).json({
       error: "AI generation failed",
       details: err.message
@@ -79,28 +71,36 @@ app.post("/generate", async (req, res) => {
   }
 });
 
-// ---------------- SAVE TO GITHUB (FIXED) ----------------
+// ---------------- GITHUB SAVE ----------------
 app.post("/save", async (req, res) => {
-  let { code, repo } = req.body;
+  const { code, repo, githubToken } = req.body;
 
-  // 🔥 FIX: remove hidden spaces
-  repo = (repo || "").trim();
-
-  if (!code || !repo) {
-    return res.status(400).json({ error: "Missing code or repo" });
+  if (!code || !repo || !githubToken) {
+    return res.status(400).json({ error: "Missing code, repo or token" });
   }
 
   try {
-    const owner = process.env.GITHUB_USERNAME;
+    const octokit = new Octokit({
+      auth: githubToken
+    });
+
+    const cleanRepo = repo.trim();
+    const [owner, repoName] = cleanRepo.split("/");
+
+    if (!owner || !repoName) {
+      return res.status(400).json({ error: "Repo must be owner/repo format" });
+    }
+
     const path = "terraform/main.tf";
     const branch = "main";
 
     let sha;
 
+    // check existing file
     try {
       const existing = await octokit.request(
         "GET /repos/{owner}/{repo}/contents/{path}",
-        { owner, repo, path, ref: branch }
+        { owner, repo: repoName, path, ref: branch }
       );
 
       if (!Array.isArray(existing.data)) {
@@ -114,7 +114,7 @@ app.post("/save", async (req, res) => {
       "PUT /repos/{owner}/{repo}/contents/{path}",
       {
         owner,
-        repo,
+        repo: repoName,
         path,
         message: "AI Terraform update",
         content: Buffer.from(code).toString("base64"),
@@ -124,7 +124,7 @@ app.post("/save", async (req, res) => {
     );
 
     res.json({
-      message: "Saved to GitHub",
+      success: true,
       url: result.data.content?.html_url
     });
 
@@ -132,23 +132,23 @@ app.post("/save", async (req, res) => {
     console.error("GITHUB ERROR:", err.response?.data || err.message);
     res.status(500).json({
       error: "GitHub save failed",
-      details: err.response?.data || err.message
+      details: err.message
     });
   }
 });
 
 // ---------------- DEPLOY ----------------
 app.post("/deploy", async (req, res) => {
-  let { code, repo } = req.body;
+  const { code, repo, githubToken } = req.body;
 
-  repo = (repo || "").trim();
-
-  if (!code || !repo) {
-    return res.status(400).json({ error: "Missing code or repo" });
+  if (!code || !repo || !githubToken) {
+    return res.status(400).json({ error: "Missing data" });
   }
 
   try {
-    const owner = process.env.GITHUB_USERNAME;
+    const octokit = new Octokit({ auth: githubToken });
+
+    const [owner, repoName] = repo.trim().split("/");
     const path = "terraform/main.tf";
     const branch = "main";
 
@@ -157,7 +157,7 @@ app.post("/deploy", async (req, res) => {
     try {
       const existing = await octokit.request(
         "GET /repos/{owner}/{repo}/contents/{path}",
-        { owner, repo, path, ref: branch }
+        { owner, repo: repoName, path, ref: branch }
       );
 
       if (!Array.isArray(existing.data)) {
@@ -171,7 +171,7 @@ app.post("/deploy", async (req, res) => {
       "PUT /repos/{owner}/{repo}/contents/{path}",
       {
         owner,
-        repo,
+        repo: repoName,
         path,
         message: "Deploy Terraform",
         content: Buffer.from(code).toString("base64"),
@@ -184,20 +184,21 @@ app.post("/deploy", async (req, res) => {
       "POST /repos/{owner}/{repo}/actions/workflows/terraform.yml/dispatches",
       {
         owner,
-        repo,
+        repo: repoName,
         ref: branch
       }
     );
 
     res.json({
+      success: true,
       message: "Deployment triggered 🚀"
     });
 
   } catch (err) {
     console.error("DEPLOY ERROR:", err.response?.data || err.message);
     res.status(500).json({
-      error: "Deployment failed",
-      details: err.response?.data || err.message
+      error: "Deploy failed",
+      details: err.message
     });
   }
 });
